@@ -27,7 +27,9 @@ jobs:
       - name: Setup Theos
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          git clone --recursive https://github.com/theos/sdks.git $HOME/theos/sdks
+          git clone --depth=1 https://github.com/theos/sdks.git /tmp/sdks
+          cp -r /tmp/sdks/*.sdk $HOME/theos/sdks/
+          rm -rf /tmp/sdks
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
           echo "$HOME/theos/bin" >> $GITHUB_PATH
 
