@@ -103,16 +103,19 @@ static void didFinishLaunching(CFNotificationCenterRef center, void *observer, C
   timer(5) {
     SCLAlertView *alert = [[SCLAlertView alloc] initWithNewWindow];
 
-    // Website link, remove it if you don't need it.
-    [alert addButton: NSSENCRYPT("Visit Me!") actionBlock: ^(void) {
-      // [[UIApplication sharedApplication] openURL: [NSURL URLWithString: NSSENCRYPT("https://google.com")]];
-      timer(2) {
-        setupMenu();
-      });        
-    }];
+    SCLTextView *keyField = [alert addTextField:NSSENCRYPT("Key")];
+    keyField.text = @"1";
+    keyField.textAlignment = NSTextAlignmentCenter;
 
-    [alert addButton: NSSENCRYPT("Thankyou, understood.") actionBlock: ^(void) {
-      timer(2) {
+    [alert addButton: NSSENCRYPT("Entrar") validationBlock:^BOOL {
+      if ([keyField.text isEqualToString:@"1"]) {
+        return YES;
+      }
+      keyField.layer.borderColor = [UIColor redColor].CGColor;
+      keyField.layer.borderWidth = 1.0f;
+      return NO;
+    } actionBlock: ^(void) {
+      timer(1) {
         setupMenu();
       });
     }];    
@@ -122,7 +125,7 @@ static void didFinishLaunching(CFNotificationCenterRef center, void *observer, C
     alert.showAnimationType = SCLAlertViewShowAnimationSlideInFromCenter;   
     
     [alert showSuccess: NSSENCRYPT("RAFA PRO")
-            subTitle:NSSENCRYPT("RafaModzYT Is back\n\nDisfrutalo!") 
+            subTitle:NSSENCRYPT("RafaModzYT Is back\n\nIngresa tu Key de acceso:") 
               closeButtonTitle:nil
                 duration:99999999.0f];
   });
