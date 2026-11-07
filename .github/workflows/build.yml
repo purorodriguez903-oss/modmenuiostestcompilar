@@ -1,0 +1,88 @@
+name: Build & Inject Free Fire Mod Menu
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: 'URL directa de descarga del IPA de Free Fire (opcional para inyectar)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  build:
+    name: Compilar Mod Menu (.dylib)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          brew install dpkg ldid
+
+      - name: Setup Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          git clone --recursive https://github.com/theos/sdks.git $HOME/theos/sdks
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          echo "$HOME/theos/bin" >> $GITHUB_PATH
+
+      - name: Build Tweak
+        run: |
+          export THEOS=$HOME/theos
+          make clean
+          make package FINALPACKAGE=1
+
+      - name: Extract Dylib and Deb
+        run: |
+          mkdir -p output
+          find .theos/obj -name "*.dylib" -exec cp {} output/ \; 2>/dev/null || true
+          find packages -name "*.deb" -exec cp {} output/ \; 2>/dev/null || true
+          ls -la output/
+
+      - name: Upload Dylib & Deb Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeFireModMenu-Dylib-and-Deb
+          path: output/*
+
+  inject:
+    name: Inyectar en IPA (Azule)
+    needs: build
+    if: "${{ github.event.inputs.ipa_url != '' }}"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Built Dylib
+        uses: actions/download-artifact@v4
+        with:
+          name: FreeFireModMenu-Dylib-and-Deb
+          path: tweak-output
+
+      - name: Setup Environment and Azule
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl unzip zip git ldid
+          git clone https://github.com/mpelteshki/Azule.git ~/Azule
+          sudo ln -s ~/Azule/azule /usr/local/bin/azule
+
+      - name: Download IPA and Inject
+        run: |
+          mkdir -p input output
+          echo "Descargando IPA desde URL..."
+          wget -O input/FreeFire.ipa "${{ github.event.inputs.ipa_url }}"
+          
+          DYLIB_PATH=$(find tweak-output -name "*.dylib" | head -n 1)
+          echo "Inyectando $DYLIB_PATH..."
+          
+          azule -i input/FreeFire.ipa -f "$DYLIB_PATH" -o output/FreeFire_ModMenu.ipa -v
+
+      - name: Upload Patched IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeFire-ModMenu-Patched-IPA
+          path: output/FreeFire_ModMenu.ipa

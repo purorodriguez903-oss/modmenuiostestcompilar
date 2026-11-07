@@ -1,0 +1,9 @@
+Package: com.dts.freefireth.modmenu
+Name: Free Fire Mod Menu
+Depends: mobilesubstrate
+Version: 1.132.1
+Architecture: iphoneos-arm
+Description: Free Fire Mod Menu for iOS
+Maintainer: RafaPlug11
+Author: RafaPlug11
+Section: Tweaks
