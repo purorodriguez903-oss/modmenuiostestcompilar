@@ -27,7 +27,7 @@ jobs:
       - name: Setup Theos
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          curl -Lo /tmp/iPhoneOS14.5.sdk.tar.xz https://github.com/theos/sdks/releases/download/iPhoneOS14.5.sdk/iPhoneOS14.5.sdk.tar.xz
+          curl -Lo /tmp/iPhoneOS14.5.sdk.tar.xz https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS14.5.sdk.tar.xz
           tar -xf /tmp/iPhoneOS14.5.sdk.tar.xz -C $HOME/theos/sdks/
           rm -f /tmp/iPhoneOS14.5.sdk.tar.xz
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
