@@ -24,17 +24,19 @@
 -(void)setFrameworkName:(const char *)name_;
 -(const char *)getFrameworkName;
 
-
 -(void)showMenuButton;
 -(void)addSwitchToMenu:(id)switch_;
 -(void)showPopup:(NSString *)title_ description:(NSString *)description_;
+-(void)hideMenuAction;
 
 @end
 
 @interface OffsetSwitch : UIButton {
-	NSString *preferencesKey;
-	NSString *description;
+    NSString *preferencesKey;
+    NSString *description;
     UILabel *switchLabel;
+    UILabel *subLabel;
+    UISwitch *toggleSwitch;
 }
 
 - (id)initHackNamed:(NSString *)hackName_ description:(NSString *)description_ offsets:(std::vector<uint64_t>)offsets_ bytes:(std::vector<std::string>)bytes_;
@@ -43,26 +45,31 @@
 -(NSString *)getPreferencesKey;
 -(NSString *)getDescription;
 - (std::vector<MemoryPatch>)getMemoryPatches;
-
+-(void)setSwitchOn:(BOOL)on;
+-(UISwitch *)getToggleSwitch;
 
 @end
 
 @interface TextFieldSwitch : OffsetSwitch<UITextFieldDelegate> {
-	NSString *switchValueKey;
+    NSString *switchValueKey;
+    UITextField *textfieldValue;
 }
 
 - (id)initTextfieldNamed:(NSString *)hackName_ description:(NSString *)description_ inputBorderColor:(UIColor *)inputBorderColor_;
 
 -(NSString *)getSwitchValueKey;
+-(UITextField *)getTextField;
 
 @end
 
-@interface SliderSwitch : TextFieldSwitch
+@interface SliderSwitch : TextFieldSwitch {
+    float sliderVal;
+    UILabel *valLabel;
+}
 
 - (id)initSliderNamed:(NSString *)hackName_ description:(NSString *)description_ minimumValue:(float)minimumValue_ maximumValue:(float)maximumValue_ sliderColor:(UIColor *)sliderColor_;
 
 @end
-
 
 @interface Switches : UIButton
 

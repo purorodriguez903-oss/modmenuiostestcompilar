@@ -1,5 +1,5 @@
 //
-//  Menu.m
+//  Menu.mm
 //  ModMenu
 //
 //  Created by Joey on 3/14/19.
@@ -12,20 +12,20 @@
 @interface Menu ()
 
 @property (assign, nonatomic) CGPoint lastMenuLocation;
-@property (strong, nonatomic) UILabel *menuTitle;
 @property (strong, nonatomic) UIView *header;
+@property (strong, nonatomic) UIView *tabsView;
 @property (strong, nonatomic) UIView *footer;
+@property (strong, nonatomic) NSMutableArray<UIButton *> *tabButtons;
 
 @end
-
 
 @implementation Menu
 
 NSUserDefaults *defaults;
-
 UIScrollView *scrollView;
-CGFloat menuWidth;
-CGFloat scrollViewX;
+CGFloat menuWidth = 320.0f;
+CGFloat menuHeight = 440.0f;
+CGFloat scrollViewX = 0;
 NSString *credits;
 UIColor *switchOnColor;
 NSString *switchTitleFont;
@@ -33,84 +33,171 @@ UIColor *switchTitleColor;
 UIColor *infoButtonColor;
 NSString *menuIconBase64;
 NSString *menuButtonBase64;
-float scrollViewHeight = 0;
+float scrollViewHeight = 6.0f;
 BOOL hasRestoredLastSession = false;
 UIButton *menuButton;
 
 const char *frameworkName = NULL;
-
 UIWindow *mainWindow;
 
-
-// init the menu
-// global variabls, extern in Macros.h
 Menu *menu = [Menu alloc];
 Switches *switches = [Switches alloc];
-
 
 -(id)initWithTitle:(NSString *)title_ titleColor:(UIColor *)titleColor_ titleFont:(NSString *)titleFont_ credits:(NSString *)credits_ headerColor:(UIColor *)headerColor_ switchOffColor:(UIColor *)switchOffColor_ switchOnColor:(UIColor *)switchOnColor_ switchTitleFont:(NSString *)switchTitleFont_ switchTitleColor:(UIColor *)switchTitleColor_ infoButtonColor:(UIColor *)infoButtonColor_ maxVisibleSwitches:(int)maxVisibleSwitches_ menuWidth:(CGFloat )menuWidth_ menuIcon:(NSString *)menuIconBase64_ menuButton:(NSString *)menuButtonBase64_ {
     mainWindow = [UIApplication sharedApplication].keyWindow;
     defaults = [NSUserDefaults standardUserDefaults];
 
-    menuWidth = menuWidth_;
-    switchOnColor = switchOnColor_;
+    menuWidth = 320.0f;
+    menuHeight = 440.0f;
+    switchOnColor = [UIColor colorWithRed:229.0f/255.0f green:29.0f/255.0f blue:46.0f/255.0f alpha:1.0f];
     credits = credits_;
     switchTitleFont = switchTitleFont_;
-    switchTitleColor = switchTitleColor_;
-    infoButtonColor = infoButtonColor_;
+    switchTitleColor = [UIColor whiteColor];
+    infoButtonColor = switchOnColor;
     menuButtonBase64 = menuButtonBase64_;
 
-    // Base of the Menu UI.
-    self = [super initWithFrame:CGRectMake(0,0,menuWidth_, maxVisibleSwitches_ * 50 + 50)];
+    // Main Card Container Setup
+    self = [super initWithFrame:CGRectMake(0, 0, menuWidth, menuHeight)];
     self.center = mainWindow.center;
     self.layer.opacity = 0.0f;
+    self.backgroundColor = [UIColor colorWithRed:14.0f/255.0f green:14.0f/255.0f blue:18.0f/255.0f alpha:0.96f];
+    self.layer.cornerRadius = 22.0f;
+    self.layer.borderWidth = 1.5f;
+    self.layer.borderColor = switchOnColor.CGColor;
+    self.layer.masksToBounds = YES;
 
-    self.header = [[UIView alloc]initWithFrame:CGRectMake(0, 1, menuWidth_, 50)];
-    self.header.backgroundColor = headerColor_;
-    CAShapeLayer *headerLayer = [CAShapeLayer layer];
-    headerLayer.path = [UIBezierPath bezierPathWithRoundedRect: self.header.bounds byRoundingCorners: UIRectCornerTopLeft | UIRectCornerTopRight cornerRadii: (CGSize){10.0, 10.0}].CGPath;
-    self.header.layer.mask = headerLayer;
+    // Header (Y: 0 to 62)
+    self.header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, menuWidth, 62)];
+    self.header.backgroundColor = [UIColor clearColor];
     [self addSubview:self.header];
+
+    // Left Icon Badge Container
+    UIView *iconContainer = [[UIView alloc] initWithFrame:CGRectMake(14, 10, 44, 44)];
+    iconContainer.backgroundColor = [UIColor colorWithRed:22.0f/255.0f green:22.0f/255.0f blue:28.0f/255.0f alpha:1.0f];
+    iconContainer.layer.cornerRadius = 22.0f;
+    iconContainer.layer.borderWidth = 1.5f;
+    iconContainer.layer.borderColor = switchOnColor.CGColor;
+    iconContainer.clipsToBounds = YES;
+    [self.header addSubview:iconContainer];
 
     NSData* data = [[NSData alloc] initWithBase64EncodedString:menuIconBase64_ options:0];
     UIImage* menuIconImage = [UIImage imageWithData:data];
 
-    UIButton *menuIcon = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-    menuIcon.frame = CGRectMake(5, 1, 50, 50);
+    UIButton *menuIcon = [UIButton buttonWithType:UIButtonTypeCustom];
+    menuIcon.frame = CGRectMake(0, 0, 44, 44);
     menuIcon.backgroundColor = [UIColor clearColor];
     [menuIcon setBackgroundImage:menuIconImage forState:UIControlStateNormal];
+    [menuIcon addTarget:self action:@selector(menuIconTapped) forControlEvents:UIControlEventTouchUpInside];
+    [iconContainer addSubview:menuIcon];
 
-    [menuIcon addTarget:self action:@selector(menuIconTapped) forControlEvents:UIControlEventTouchDown];
-    [self.header addSubview:menuIcon];
+    // Crown label on top of badge
+    UILabel *crownLbl = [[UILabel alloc] initWithFrame:CGRectMake(14, 0, 44, 14)];
+    crownLbl.text = @"👑";
+    crownLbl.font = [UIFont systemFontOfSize:10.0f];
+    crownLbl.textAlignment = NSTextAlignmentCenter;
+    [self.header addSubview:crownLbl];
 
-    scrollView = [[UIScrollView alloc]initWithFrame:CGRectMake(0, CGRectGetHeight(self.header.bounds), menuWidth_, CGRectGetHeight(self.bounds) - CGRectGetHeight(self.header.bounds))];
-    scrollView.backgroundColor = switchOffColor_;
+    // Title: RAFA iOS (dual-tone)
+    NSMutableAttributedString *attrTitle = [[NSMutableAttributedString alloc] initWithString:@"RAFA " attributes:@{
+        NSFontAttributeName: [UIFont boldSystemFontOfSize:20.0f],
+        NSForegroundColorAttributeName: [UIColor whiteColor]
+    }];
+    NSAttributedString *attrIos = [[NSAttributedString alloc] initWithString:@"iOS" attributes:@{
+        NSFontAttributeName: [UIFont italicSystemFontOfSize:20.0f],
+        NSForegroundColorAttributeName: switchOnColor
+    }];
+    [attrTitle appendAttributedString:attrIos];
+
+    UILabel *titleLbl = [[UILabel alloc] initWithFrame:CGRectMake(68, 12, 180, 24)];
+    titleLbl.attributedText = attrTitle;
+    [self.header addSubview:titleLbl];
+
+    // Subtitle: — MOD MENU —
+    UILabel *subTitleLbl = [[UILabel alloc] initWithFrame:CGRectMake(68, 36, 180, 14)];
+    subTitleLbl.text = @"— MOD MENU —";
+    subTitleLbl.textColor = [UIColor colorWithRed:126.0f/255.0f green:126.0f/255.0f blue:138.0f/255.0f alpha:1.0f];
+    subTitleLbl.font = [UIFont systemFontOfSize:10.0f weight:UIFontWeightBold];
+    [self.header addSubview:subTitleLbl];
+
+    // Tabs Bar (Y: 62 to 94)
+    self.tabsView = [[UIView alloc] initWithFrame:CGRectMake(0, 62, menuWidth, 34)];
+    self.tabsView.backgroundColor = [UIColor clearColor];
+    [self addSubview:self.tabsView];
+
+    self.tabButtons = [NSMutableArray new];
+    NSArray *tabTitles = @[@"⚙️ Main", @"🚀 Player", @"🎯 ESP", @"⚙️ Misc"];
+    CGFloat tabW = (menuWidth - 24.0f - 18.0f) / 4.0f; // ~69pt each
+    for (int i = 0; i < 4; i++) {
+        UIButton *tBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        tBtn.frame = CGRectMake(12.0f + i * (tabW + 6.0f), 2.0f, tabW, 28.0f);
+        tBtn.layer.cornerRadius = 14.0f;
+        tBtn.titleLabel.font = [UIFont systemFontOfSize:10.5f weight:UIFontWeightBold];
+        [tBtn setTitle:tabTitles[i] forState:UIControlStateNormal];
+        tBtn.tag = i;
+        if (i == 0) {
+            tBtn.backgroundColor = switchOnColor;
+            [tBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        } else {
+            tBtn.backgroundColor = [UIColor colorWithRed:26.0f/255.0f green:26.0f/255.0f blue:34.0f/255.0f alpha:1.0f];
+            [tBtn setTitleColor:[UIColor colorWithRed:142.0f/255.0f green:142.0f/255.0f blue:158.0f/255.0f alpha:1.0f] forState:UIControlStateNormal];
+        }
+        [tBtn addTarget:self action:@selector(tabClicked:) forControlEvents:UIControlEventTouchUpInside];
+        [self.tabButtons addObject:tBtn];
+        [self.tabsView addSubview:tBtn];
+    }
+
+    // ScrollView for items (Y: 98 to 345)
+    scrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 98, menuWidth, 246)];
+    scrollView.backgroundColor = [UIColor clearColor];
+    scrollView.showsVerticalScrollIndicator = NO;
     [self addSubview:scrollView];
 
-    // we need this for the switches, do not remove.
-    scrollViewX = CGRectGetMinX(scrollView.self.bounds);
+    // Info Banner (Y: 348 to 378)
+    UIView *infoBanner = [[UIView alloc] initWithFrame:CGRectMake(12, 348, menuWidth - 24, 30)];
+    infoBanner.backgroundColor = [UIColor colorWithRed:20.0f/255.0f green:20.0f/255.0f blue:28.0f/255.0f alpha:1.0f];
+    infoBanner.layer.cornerRadius = 10.0f;
+    infoBanner.layer.borderWidth = 0.5f;
+    infoBanner.layer.borderColor = [UIColor colorWithRed:35.0f/255.0f green:35.0f/255.0f blue:46.0f/255.0f alpha:1.0f].CGColor;
+    
+    UILabel *infoIcon = [[UILabel alloc] initWithFrame:CGRectMake(8, 5, 20, 20)];
+    infoIcon.text = @"ⓘ";
+    infoIcon.textColor = switchOnColor;
+    infoIcon.font = [UIFont systemFontOfSize:13.0f weight:UIFontWeightBold];
+    [infoBanner addSubview:infoIcon];
 
-    self.menuTitle = [[UILabel alloc]initWithFrame:CGRectMake(55, -2, menuWidth_ - 60, 50)];
-    self.menuTitle.text = title_;
-    self.menuTitle.textColor = titleColor_;
-    self.menuTitle.font = [UIFont fontWithName:titleFont_ size:30.0f];
-    self.menuTitle.adjustsFontSizeToFitWidth = true;
-    self.menuTitle.textAlignment = NSTextAlignmentCenter;
-    [self.header addSubview: self.menuTitle];
+    UILabel *infoText = [[UILabel alloc] initWithFrame:CGRectMake(30, 5, 230, 20)];
+    infoText.text = @"Enjoy the Mod Menu!";
+    infoText.textColor = [UIColor colorWithRed:180.0f/255.0f green:180.0f/255.0f blue:195.0f/255.0f alpha:1.0f];
+    infoText.font = [UIFont systemFontOfSize:11.5f weight:UIFontWeightMedium];
+    [infoBanner addSubview:infoText];
+    [self addSubview:infoBanner];
 
-    self.footer = [[UIView alloc]initWithFrame:CGRectMake(0, CGRectGetHeight(self.bounds) - 1, menuWidth_, 20)];
-    self.footer.backgroundColor = headerColor_;
-    CAShapeLayer *footerLayer = [CAShapeLayer layer];
-    footerLayer.path = [UIBezierPath bezierPathWithRoundedRect:self.footer.bounds byRoundingCorners: UIRectCornerBottomLeft | UIRectCornerBottomRight cornerRadii: (CGSize){10.0, 10.0}].CGPath;
-    self.footer.layer.mask = footerLayer;
+    // Footer (Y: 384 to 430)
+    self.footer = [[UIView alloc] initWithFrame:CGRectMake(0, 384, menuWidth, 46)];
+    self.footer.backgroundColor = [UIColor clearColor];
     [self addSubview:self.footer];
 
-    UIPanGestureRecognizer *dragMenuRecognizer = [[UIPanGestureRecognizer alloc]initWithTarget:self action:@selector(menuDragged:)];
-    [self.header addGestureRecognizer:dragMenuRecognizer];
+    UILabel *footerLbl = [[UILabel alloc] initWithFrame:CGRectMake(14, 12, 170, 22)];
+    footerLbl.text = @"👤 Rafa iOS  |  👑 v1.0";
+    footerLbl.textColor = [UIColor colorWithRed:142.0f/255.0f green:142.0f/255.0f blue:158.0f/255.0f alpha:1.0f];
+    footerLbl.font = [UIFont systemFontOfSize:11.5f weight:UIFontWeightMedium];
+    [self.footer addSubview:footerLbl];
 
-    UITapGestureRecognizer *tapGestureRecognizer = [[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(hideMenu:)];
-    tapGestureRecognizer.numberOfTapsRequired = 1;
-    [self.header addGestureRecognizer:tapGestureRecognizer];
+    UIButton *closeBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    closeBtn.frame = CGRectMake(menuWidth - 96, 7, 84, 30);
+    closeBtn.backgroundColor = [UIColor colorWithRed:22.0f/255.0f green:22.0f/255.0f blue:30.0f/255.0f alpha:1.0f];
+    closeBtn.layer.cornerRadius = 15.0f;
+    closeBtn.layer.borderWidth = 1.0f;
+    closeBtn.layer.borderColor = switchOnColor.CGColor;
+    [closeBtn setTitle:@"✕ Close" forState:UIControlStateNormal];
+    closeBtn.titleLabel.font = [UIFont boldSystemFontOfSize:12.0f];
+    [closeBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [closeBtn addTarget:self action:@selector(hideMenuAction) forControlEvents:UIControlEventTouchUpInside];
+    [self.footer addSubview:closeBtn];
+
+    // Drag recognizer
+    UIPanGestureRecognizer *dragMenuRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(menuDragged:)];
+    [self.header addGestureRecognizer:dragMenuRecognizer];
 
     [mainWindow addSubview:self];
     [self showMenuButton];
@@ -118,71 +205,61 @@ Switches *switches = [Switches alloc];
     return self;
 }
 
-// Detects whether the menu is being touched and sets a lastMenuLocation.
+-(void)tabClicked:(UIButton *)sender {
+    for (UIButton *btn in self.tabButtons) {
+        if (btn == sender) {
+            btn.backgroundColor = switchOnColor;
+            [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        } else {
+            btn.backgroundColor = [UIColor colorWithRed:26.0f/255.0f green:26.0f/255.0f blue:34.0f/255.0f alpha:1.0f];
+            [btn setTitleColor:[UIColor colorWithRed:142.0f/255.0f green:142.0f/255.0f blue:158.0f/255.0f alpha:1.0f] forState:UIControlStateNormal];
+        }
+    }
+}
+
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
     self.lastMenuLocation = CGPointMake(CGRectGetMinX(self.frame), CGRectGetMinY(self.frame));
     [super touchesBegan:touches withEvent:event];
 }
 
-// Update the menu's location when it's being dragged
 - (void)menuDragged:(UIPanGestureRecognizer *)pan {
     CGPoint newLocation = [pan translationInView:self.superview];
     self.frame = CGRectMake(self.lastMenuLocation.x + newLocation.x, self.lastMenuLocation.y + newLocation.y, CGRectGetWidth(self.frame), CGRectGetHeight(self.frame));
 }
 
-- (void)hideMenu:(UITapGestureRecognizer *)tap {
-    if(tap.state == UIGestureRecognizerStateEnded) {
-        [UIView animateWithDuration:0.5 animations:^ {
-            self.alpha = 0.0f;
-            menuButton.alpha = 1.0f;
-        }];
-    }
+-(void)hideMenuAction {
+    [UIView animateWithDuration:0.3 animations:^{
+        self.alpha = 0.0f;
+        menuButton.alpha = 1.0f;
+    }];
 }
 
 -(void)showMenu:(UITapGestureRecognizer *)tapGestureRecognizer {
     if(tapGestureRecognizer.state == UIGestureRecognizerStateEnded) {
         menuButton.alpha = 0.0f;
-        [UIView animateWithDuration:0.5 animations:^ {
+        [UIView animateWithDuration:0.3 animations:^{
             self.alpha = 1.0f;
         }];
     }
-    // We should only have to do this once (first launch)
     if(!hasRestoredLastSession) {
         restoreLastSession();
         hasRestoredLastSession = true;
     }
 }
 
-/**********************************************************************************************
-     This function will be called when the menu has been opened for the first time on launch.
-     It'll handle the correct background color and patches the switches do.
-***********************************************************************************************/
 void restoreLastSession() {
-    UIColor *clearColor = [UIColor clearColor];
-    BOOL isOn = false;
-
     for(id switch_ in scrollView.subviews) {
         if([switch_ isKindOfClass:[OffsetSwitch class]]) {
-            isOn = [defaults boolForKey:[switch_ getPreferencesKey]];
+            BOOL isOn = [defaults boolForKey:[switch_ getPreferencesKey]];
             std::vector<MemoryPatch> memoryPatches = [switch_ getMemoryPatches];
             for(int i = 0; i < memoryPatches.size(); i++) {
                 if(isOn){
-                 memoryPatches[i].Modify();
+                    memoryPatches[i].Modify();
                 } else {
-                 memoryPatches[i].Restore();
+                    memoryPatches[i].Restore();
                 }
             }
-            ((OffsetSwitch*)switch_).backgroundColor = isOn ? switchOnColor : clearColor;
-        }
-
-        if([switch_ isKindOfClass:[TextFieldSwitch class]]) {
-            isOn = [defaults boolForKey:[switch_ getPreferencesKey]];
-            ((TextFieldSwitch*)switch_).backgroundColor = isOn ? switchOnColor : clearColor;
-        }
-
-        if([switch_ isKindOfClass:[SliderSwitch class]]) {
-            isOn = [defaults boolForKey:[switch_ getPreferencesKey]];
-            ((SliderSwitch*)switch_).backgroundColor = isOn ? switchOnColor : clearColor;
+            [((OffsetSwitch*)switch_) setSwitchOn:isOn];
         }
     }
 }
@@ -196,29 +273,25 @@ void restoreLastSession() {
     menuButton.backgroundColor = [UIColor clearColor];
     [menuButton setBackgroundImage:menuButtonImage forState:UIControlStateNormal];
 
-    UITapGestureRecognizer *tapGestureRecognizer = [[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(showMenu:)];
+    UITapGestureRecognizer *tapGestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(showMenu:)];
     [menuButton addGestureRecognizer:tapGestureRecognizer];
 
-    [menuButton addTarget:self action:@selector(buttonDragged:withEvent:)
-       forControlEvents:UIControlEventTouchDragInside];
+    [menuButton addTarget:self action:@selector(buttonDragged:withEvent:) forControlEvents:UIControlEventTouchDragInside];
+
     [mainWindow addSubview:menuButton];
 }
 
-// handler for when the user is draggin the menu.
 - (void)buttonDragged:(UIButton *)button withEvent:(UIEvent *)event {
     UITouch *touch = [[event touchesForView:button] anyObject];
-
     CGPoint previousLocation = [touch previousLocationInView:button];
     CGPoint location = [touch locationInView:button];
     CGFloat delta_x = location.x - previousLocation.x;
     CGFloat delta_y = location.y - previousLocation.y;
-
     button.center = CGPointMake(button.center.x + delta_x, button.center.y + delta_y);
 }
 
-// When the menu icon(on the header) has been tapped, we want to show proper credits!
 -(void)menuIconTapped {
-    [self showPopup:self.menuTitle.text description:credits];
+    [self showPopup:@"Credits" description:credits];
     self.layer.opacity = 0.0f;
 }
 
@@ -226,7 +299,7 @@ void restoreLastSession() {
     SCLAlertView *alert = [[SCLAlertView alloc] initWithNewWindow];
 
     alert.shouldDismissOnTapOutside = NO;
-    alert.customViewColor = [UIColor purpleColor];
+    alert.customViewColor = [UIColor colorWithRed:229.0f/255.0f green:29.0f/255.0f blue:46.0f/255.0f alpha:1.0f];
     alert.showAnimationType = SCLAlertViewShowAnimationFadeIn;
 
     [alert addButton: @"Ok!" actionBlock: ^(void) {
@@ -236,40 +309,22 @@ void restoreLastSession() {
     [alert showInfo:title_ subTitle:description_ closeButtonTitle:nil duration:9999999.0f];
 }
 
-/*******************************************************************
-    This method adds the given switch to the menu's scrollview.
-    it also add's an action for when the switch is being clicked.
-********************************************************************/
 - (void)addSwitchToMenu:(id)switch_ {
-    [switch_ addTarget:self action:@selector(switchClicked:) forControlEvents:UIControlEventTouchDown];
-    scrollViewHeight += 50;
-    scrollView.contentSize = CGSizeMake(menuWidth, scrollViewHeight);
+    CGFloat cardH = 54.0f;
+    CGFloat spacing = 6.0f;
+    ((UIView*)switch_).frame = CGRectMake(12.0f, scrollViewHeight, menuWidth - 24.0f, cardH);
+    scrollViewHeight += cardH + spacing;
+    scrollView.contentSize = CGSizeMake(menuWidth, scrollViewHeight + 10.0f);
     [scrollView addSubview:switch_];
 }
 
 - (void)changeSwitchBackground:(id)switch_ isSwitchOn:(BOOL)isSwitchOn_ {
-    UIColor *clearColor = [UIColor clearColor];
-
-    [UIView animateWithDuration:0.3 animations:^ {
-        if([switch_ isKindOfClass:[TextFieldSwitch class]]) {
-            ((TextFieldSwitch*)switch_).backgroundColor = isSwitchOn_ ? clearColor : switchOnColor;
-        }
-        if([switch_ isKindOfClass:[SliderSwitch class]]) {
-            ((SliderSwitch*)switch_).backgroundColor = isSwitchOn_ ? clearColor : switchOnColor;
-        }
-        if([switch_ isKindOfClass:[OffsetSwitch class]]) {
-            ((OffsetSwitch*)switch_).backgroundColor = isSwitchOn_ ? clearColor : switchOnColor;
-        }
-    }];
-
+    if([switch_ isKindOfClass:[OffsetSwitch class]]) {
+        [((OffsetSwitch*)switch_) setSwitchOn:!isSwitchOn_];
+    }
     [defaults setBool:!isSwitchOn_ forKey:[switch_ getPreferencesKey]];
 }
 
-/*********************************************************************************************
-    This method does the following handles the behaviour when a switch has been clicked
-    TextfieldSwitch and SliderSwitch only change from color based on whether it's on or not.
-    A OffsetSwitch does too, but it also applies offset patches
-***********************************************************************************************/
 -(void)switchClicked:(id)switch_ {
     BOOL isOn = [defaults boolForKey:[switch_ getPreferencesKey]];
 
@@ -280,11 +335,10 @@ void restoreLastSession() {
                 memoryPatches[i].Modify();
             } else {
                 memoryPatches[i].Restore();
-           }
+            }
         }
     }
 
-    // Update switch background color and pref value.
     [self changeSwitchBackground:switch_ isSwitchOn:isOn];
 }
 
@@ -295,7 +349,8 @@ void restoreLastSession() {
 -(const char *)getFrameworkName {
     return frameworkName;
 }
-@end // End of menu class!
+
+@end
 
 
 /********************************
@@ -310,212 +365,249 @@ void restoreLastSession() {
     description = description_;
     preferencesKey = hackName_;
 
-    if(offsets_.size() != bytes_.size()){
-        [menu showPopup:@"Invalid input count" description:[NSString stringWithFormat:@"Offsets array input count (%d) is not equal to the bytes array input count (%d)", (int)offsets_.size(), (int)bytes_.size()]];
-    } else {
-        // For each offset, we create a MemoryPatch.
-        for(int i = 0; i < offsets_.size(); i++) {
-            MemoryPatch patch = MemoryPatch::createWithHex([menu getFrameworkName], offsets_[i], bytes_[i]);
-            if(patch.isValid()) {
-              memoryPatches.push_back(patch);
-            } else {
-              [menu showPopup:@"Invalid patch" description:[NSString stringWithFormat:@"Failing offset: 0x%llx, please re-check the hex you entered.", offsets_[i]]];
-            }
+    for(int i = 0; i < offsets_.size(); i++) {
+        MemoryPatch patch = MemoryPatch::createWithHex([menu getFrameworkName], offsets_[i], bytes_[i]);
+        if(patch.isValid()) {
+            memoryPatches.push_back(patch);
         }
     }
 
-    self = [super initWithFrame:CGRectMake(-1, scrollViewX + scrollViewHeight - 1, menuWidth + 2, 50)];
-    self.backgroundColor = [UIColor clearColor];
-    self.layer.borderWidth = 0.5f;
-    self.layer.borderColor = [UIColor whiteColor].CGColor;
+    self = [super initWithFrame:CGRectMake(12, 0, menuWidth - 24, 54)];
+    self.backgroundColor = [UIColor colorWithRed:22.0f/255.0f green:22.0f/255.0f blue:30.0f/255.0f alpha:1.0f];
+    self.layer.cornerRadius = 12.0f;
+    self.layer.borderWidth = 1.0f;
+    self.layer.borderColor = [UIColor colorWithRed:35.0f/255.0f green:35.0f/255.0f blue:46.0f/255.0f alpha:1.0f].CGColor;
+    self.adjustsImageWhenHighlighted = NO;
 
-    switchLabel = [[UILabel alloc]initWithFrame:CGRectMake(20, 0, menuWidth - 60, 50)];
+    // Icon container
+    UIView *iconBg = [[UIView alloc] initWithFrame:CGRectMake(10, 11, 32, 32)];
+    iconBg.backgroundColor = [UIColor colorWithRed:28.0f/255.0f green:28.0f/255.0f blue:38.0f/255.0f alpha:1.0f];
+    iconBg.layer.cornerRadius = 8.0f;
+    iconBg.userInteractionEnabled = NO;
+    [self addSubview:iconBg];
+
+    UILabel *iconLbl = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 32, 32)];
+    iconLbl.textAlignment = NSTextAlignmentCenter;
+    iconLbl.font = [UIFont systemFontOfSize:16.0f];
+    NSString *lower = [hackName_ lowercaseString];
+    if ([lower containsString:@"god"]) {
+        iconLbl.text = @"👑";
+    } else if ([lower containsString:@"kill"] || [lower containsString:@"hit"]) {
+        iconLbl.text = @"💀";
+    } else if ([lower containsString:@"gold"] || [lower containsString:@"money"]) {
+        iconLbl.text = @"💎";
+    } else if ([lower containsString:@"speed"]) {
+        iconLbl.text = @"⚡";
+    } else {
+        iconLbl.text = @"🚀";
+    }
+    [iconBg addSubview:iconLbl];
+
+    // Title
+    switchLabel = [[UILabel alloc] initWithFrame:CGRectMake(50, 9, 160, 18)];
     switchLabel.text = hackName_;
-    switchLabel.textColor = switchTitleColor;
-    switchLabel.font = [UIFont fontWithName:switchTitleFont size:18];
-    switchLabel.adjustsFontSizeToFitWidth = true;
-    switchLabel.textAlignment = NSTextAlignmentCenter;
+    switchLabel.textColor = [UIColor whiteColor];
+    switchLabel.font = [UIFont boldSystemFontOfSize:13.5f];
     [self addSubview:switchLabel];
 
-    UIButton *infoButton = [UIButton buttonWithType:UIButtonTypeInfoDark];
-    infoButton.frame = CGRectMake(menuWidth - 30, 15, 20, 20);
-    infoButton.tintColor = infoButtonColor;
+    // Subtitle
+    subLabel = [[UILabel alloc] initWithFrame:CGRectMake(50, 28, 160, 14)];
+    subLabel.text = description_;
+    subLabel.textColor = [UIColor colorWithRed:142.0f/255.0f green:142.0f/255.0f blue:158.0f/255.0f alpha:1.0f];
+    subLabel.font = [UIFont systemFontOfSize:10.0f];
+    [self addSubview:subLabel];
 
-    UITapGestureRecognizer *infoTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(showInfo:)];
-    [infoButton addGestureRecognizer:infoTap];
-    [self addSubview:infoButton];
+    // Right-aligned UISwitch
+    toggleSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(menuWidth - 24 - 58, 12, 48, 28)];
+    toggleSwitch.onTintColor = [UIColor colorWithRed:229.0f/255.0f green:29.0f/255.0f blue:46.0f/255.0f alpha:1.0f];
+    toggleSwitch.transform = CGAffineTransformMakeScale(0.85f, 0.85f);
+    BOOL isOn = [defaults boolForKey:preferencesKey];
+    [toggleSwitch setOn:isOn animated:NO];
+    [toggleSwitch addTarget:self action:@selector(toggleSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+    [self addSubview:toggleSwitch];
+
+    [self addTarget:self action:@selector(cardTapped) forControlEvents:UIControlEventTouchUpInside];
 
     return self;
+}
+
+-(void)cardTapped {
+    [toggleSwitch setOn:!toggleSwitch.isOn animated:YES];
+    [self toggleSwitchChanged:toggleSwitch];
+}
+
+-(void)toggleSwitchChanged:(UISwitch *)sw {
+    BOOL on = sw.isOn;
+    for(int i = 0; i < memoryPatches.size(); i++) {
+        if(on) {
+            memoryPatches[i].Modify();
+        } else {
+            memoryPatches[i].Restore();
+        }
+    }
+    [defaults setBool:on forKey:preferencesKey];
+}
+
+-(void)setSwitchOn:(BOOL)on {
+    [toggleSwitch setOn:on animated:YES];
+}
+
+-(UISwitch *)getToggleSwitch {
+    return toggleSwitch;
 }
 
 -(void)showInfo:(UIGestureRecognizer *)gestureRec {
     if(gestureRec.state == UIGestureRecognizerStateEnded) {
         [menu showPopup:[self getPreferencesKey] description:[self getDescription]];
-        menu.layer.opacity = 0.0f;
     }
 }
 
--(NSString *)getPreferencesKey {
-    return preferencesKey;
-}
+-(NSString *)getPreferencesKey { return preferencesKey; }
+-(NSString *)getDescription { return description; }
+-(std::vector<MemoryPatch>)getMemoryPatches { return memoryPatches; }
 
--(NSString *)getDescription {
-    return description;
-}
-
-- (std::vector<MemoryPatch>)getMemoryPatches {
-    return memoryPatches;
-}
-
-@end //end of OffsetSwitch class
+@end
 
 
 /**************************************
     TEXTFIELD SWITCH STARTS HERE!
-    - Note that this extends from OffsetSwitch.
 ***************************************/
 
 @implementation TextFieldSwitch {
-    UITextField *textfieldValue;
+    UIButton *minusBtn;
+    UIButton *plusBtn;
 }
 
 - (id)initTextfieldNamed:(NSString *)hackName_ description:(NSString *)description_ inputBorderColor:(UIColor *)inputBorderColor_ {
-    preferencesKey = hackName_;
+    self = [super initHackNamed:hackName_ description:description_ offsets:std::vector<uint64_t>{} bytes:std::vector<std::string>{}];
+    
+    [toggleSwitch setHidden:YES];
+    
     switchValueKey = [hackName_ stringByApplyingTransform:NSStringTransformLatinToCyrillic reverse:false];
-    description = description_;
 
-    self = [super initWithFrame:CGRectMake(-1, scrollViewX + scrollViewHeight -1, menuWidth + 2, 50)];
-    self.backgroundColor = [UIColor clearColor];
-    self.layer.borderWidth = 0.5f;
-    self.layer.borderColor = [UIColor whiteColor].CGColor;
+    CGFloat rightX = menuWidth - 24 - 108;
+    
+    minusBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    minusBtn.frame = CGRectMake(rightX, 12, 26, 30);
+    minusBtn.backgroundColor = [UIColor colorWithRed:36.0f/255.0f green:36.0f/255.0f blue:46.0f/255.0f alpha:1.0f];
+    minusBtn.layer.cornerRadius = 6.0f;
+    [minusBtn setTitle:@"−" forState:UIControlStateNormal];
+    minusBtn.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
+    [minusBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [minusBtn addTarget:self action:@selector(minusTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:minusBtn];
 
-    switchLabel = [[UILabel alloc]initWithFrame:CGRectMake(20, 0, menuWidth - 60, 30)];
-    switchLabel.text = hackName_;
-    switchLabel.textColor = switchTitleColor;
-    switchLabel.font = [UIFont fontWithName:switchTitleFont size:18];
-    switchLabel.adjustsFontSizeToFitWidth = true;
-    switchLabel.textAlignment = NSTextAlignmentCenter;
-    [self addSubview:switchLabel];
-
-    textfieldValue = [[UITextField alloc]initWithFrame:CGRectMake(menuWidth / 4 - 10, switchLabel.self.bounds.origin.x - 5 + switchLabel.self.bounds.size.height, menuWidth / 2, 20)];
-    textfieldValue.layer.borderWidth = 2.0f;
-    textfieldValue.layer.borderColor = inputBorderColor_.CGColor;
-    textfieldValue.layer.cornerRadius = 10.0f;
-    textfieldValue.textColor = switchTitleColor;
+    textfieldValue = [[UITextField alloc] initWithFrame:CGRectMake(rightX + 30, 12, 48, 30)];
+    textfieldValue.backgroundColor = [UIColor colorWithRed:14.0f/255.0f green:14.0f/255.0f blue:18.0f/255.0f alpha:1.0f];
+    textfieldValue.layer.cornerRadius = 6.0f;
+    textfieldValue.layer.borderWidth = 0.5f;
+    textfieldValue.layer.borderColor = [UIColor colorWithRed:45.0f/255.0f green:45.0f/255.0f blue:56.0f/255.0f alpha:1.0f].CGColor;
+    textfieldValue.textColor = [UIColor whiteColor];
     textfieldValue.textAlignment = NSTextAlignmentCenter;
+    textfieldValue.font = [UIFont boldSystemFontOfSize:12.0f];
     textfieldValue.delegate = self;
-    textfieldValue.backgroundColor = [UIColor clearColor];
-
-    // get value from the plist & show it (if it's not empty).
+    textfieldValue.text = @"99999";
+    
     if([[NSUserDefaults standardUserDefaults] objectForKey:switchValueKey] != nil) {
         textfieldValue.text = [[NSUserDefaults standardUserDefaults] objectForKey:switchValueKey];
     }
-
-    UIButton *infoButton = [UIButton buttonWithType:UIButtonTypeInfoDark];
-    infoButton.frame = CGRectMake(menuWidth - 30, 15, 20, 20);
-    infoButton.tintColor = infoButtonColor;
-
-    UITapGestureRecognizer *infoTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(showInfo:)];
-    [infoButton addGestureRecognizer:infoTap];
-    [self addSubview:infoButton];
-
     [self addSubview:textfieldValue];
+
+    plusBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    plusBtn.frame = CGRectMake(rightX + 82, 12, 26, 30);
+    plusBtn.backgroundColor = [UIColor colorWithRed:36.0f/255.0f green:36.0f/255.0f blue:46.0f/255.0f alpha:1.0f];
+    plusBtn.layer.cornerRadius = 6.0f;
+    [plusBtn setTitle:@"+" forState:UIControlStateNormal];
+    plusBtn.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
+    [plusBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [plusBtn addTarget:self action:@selector(plusTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:plusBtn];
 
     return self;
 }
 
-// so when click "return" the keyboard goes way, got it from internet. Common thing apparantly
+-(void)minusTapped {
+    long long val = [textfieldValue.text longLongValue];
+    if (val > 1000) val -= 1000;
+    else if (val > 0) val = 0;
+    textfieldValue.text = [NSString stringWithFormat:@"%lld", val];
+    [defaults setObject:textfieldValue.text forKey:[self getSwitchValueKey]];
+}
+
+-(void)plusTapped {
+    long long val = [textfieldValue.text longLongValue];
+    val += 1000;
+    textfieldValue.text = [NSString stringWithFormat:@"%lld", val];
+    [defaults setObject:textfieldValue.text forKey:[self getSwitchValueKey]];
+}
+
 -(BOOL)textFieldShouldReturn:(UITextField*)textfieldValue_ {
     switchValueKey = [[self getPreferencesKey] stringByApplyingTransform:NSStringTransformLatinToCyrillic reverse:false];
     [defaults setObject:textfieldValue_.text forKey:[self getSwitchValueKey]];
     [textfieldValue_ resignFirstResponder];
-
     return true;
 }
 
--(NSString *)getSwitchValueKey {
-    return switchValueKey;
-}
+-(NSString *)getSwitchValueKey { return switchValueKey; }
+-(UITextField *)getTextField { return textfieldValue; }
 
-@end // end of TextFieldSwitch Class
+@end
 
 
 /*******************************
     SLIDER SWITCH STARTS HERE!
-    - Note that this extends from TextFieldSwitch
- *******************************/
+*******************************/
 
 @implementation SliderSwitch {
-    UISlider *sliderValue;
-    float valueOfSlider;
+    float minVal;
+    float maxVal;
 }
 
 - (id)initSliderNamed:(NSString *)hackName_ description:(NSString *)description_ minimumValue:(float)minimumValue_ maximumValue:(float)maximumValue_ sliderColor:(UIColor *)sliderColor_{
-    preferencesKey = hackName_;
+    self = [super initTextfieldNamed:hackName_ description:description_ inputBorderColor:sliderColor_];
+    
+    minVal = minimumValue_;
+    maxVal = maximumValue_;
+    sliderVal = 5.0f;
+
     switchValueKey = [hackName_ stringByApplyingTransform:NSStringTransformLatinToCyrillic reverse:false];
-    description = description_;
-
-    self = [super initWithFrame:CGRectMake(-1, scrollViewX + scrollViewHeight -1, menuWidth + 2, 50)];
-    self.backgroundColor = [UIColor clearColor];
-    self.layer.borderWidth = 0.5f;
-    self.layer.borderColor = [UIColor whiteColor].CGColor;
-
-    switchLabel = [[UILabel alloc]initWithFrame:CGRectMake(20, 0, menuWidth - 60, 30)];
-    switchLabel.text = [NSString stringWithFormat:@"%@ %.2f", hackName_, sliderValue.value];
-    switchLabel.textColor = switchTitleColor;
-    switchLabel.font = [UIFont fontWithName:switchTitleFont size:18];
-    switchLabel.adjustsFontSizeToFitWidth = true;
-    switchLabel.textAlignment = NSTextAlignmentCenter;
-    [self addSubview:switchLabel];
-
-    sliderValue = [[UISlider alloc]initWithFrame:CGRectMake(menuWidth / 4 - 20, switchLabel.self.bounds.origin.x - 4 + switchLabel.self.bounds.size.height, menuWidth / 2 + 20, 20)];
-    sliderValue.thumbTintColor = sliderColor_;
-    sliderValue.minimumTrackTintColor = switchTitleColor;
-    sliderValue.maximumTrackTintColor = switchTitleColor;
-    sliderValue.minimumValue = minimumValue_;
-    sliderValue.maximumValue = maximumValue_;
-    sliderValue.continuous = true;
-    [sliderValue addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
-    valueOfSlider = sliderValue.value;
-
-    // get value from the plist & show it (if it's not empty).
-    if([[NSUserDefaults standardUserDefaults] objectForKey:switchValueKey] != nil) {
-        sliderValue.value = [[NSUserDefaults standardUserDefaults] floatForKey:switchValueKey];
-        switchLabel.text = [NSString stringWithFormat:@"%@ %.2f", hackName_, sliderValue.value];
+    if([[NSUserDefaults standardUserDefaults] floatForKey:switchValueKey]) {
+        sliderVal = [[NSUserDefaults standardUserDefaults] floatForKey:switchValueKey];
     }
-
-    UIButton *infoButton = [UIButton buttonWithType:UIButtonTypeInfoLight];
-    infoButton.frame = CGRectMake(menuWidth - 30, 15, 20, 20);
-    infoButton.tintColor = infoButtonColor;
-
-    UITapGestureRecognizer *infoTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(showInfo:)];
-    [infoButton addGestureRecognizer:infoTap];
-    [self addSubview:infoButton];
-
-    [self addSubview:sliderValue];
+    
+    textfieldValue.text = [NSString stringWithFormat:@"%.1f", sliderVal];
 
     return self;
 }
 
--(void)sliderValueChanged:(UISlider *)slider_ {
-    switchValueKey = [[self getPreferencesKey] stringByApplyingTransform:NSStringTransformLatinToCyrillic reverse:false];
-    switchLabel.text = [NSString stringWithFormat:@"%@ %.2f", [self getPreferencesKey], slider_.value];
-    [defaults setFloat:slider_.value forKey:[self getSwitchValueKey]];
+-(void)minusTapped {
+    sliderVal = [textfieldValue.text floatValue];
+    sliderVal -= 0.5f;
+    if (sliderVal < minVal) sliderVal = minVal;
+    textfieldValue.text = [NSString stringWithFormat:@"%.1f", sliderVal];
+    [defaults setFloat:sliderVal forKey:[self getSwitchValueKey]];
 }
 
-@end // end of SliderSwitch class
+-(void)plusTapped {
+    sliderVal = [textfieldValue.text floatValue];
+    sliderVal += 0.5f;
+    if (sliderVal > maxVal) sliderVal = maxVal;
+    textfieldValue.text = [NSString stringWithFormat:@"%.1f", sliderVal];
+    [defaults setFloat:sliderVal forKey:[self getSwitchValueKey]];
+}
+
+@end
 
 
-
-
+/*******************************
+    SWITCHES CONTAINER
+*******************************/
 
 @implementation Switches
 
-
 -(void)addSwitch:(NSString *)hackName_ description:(NSString *)description_ {
-    OffsetSwitch *offsetPatch = [[OffsetSwitch alloc]initHackNamed:hackName_ description:description_ offsets:std::vector<uint64_t>{} bytes:std::vector<std::string>{}];
+    OffsetSwitch *offsetPatch = [[OffsetSwitch alloc] initHackNamed:hackName_ description:description_ offsets:std::vector<uint64_t>{} bytes:std::vector<std::string>{}];
     [menu addSwitchToMenu:offsetPatch];
-
 }
 
 - (void)addOffsetSwitch:(NSString *)hackName_ description:(NSString *)description_ offsets:(std::initializer_list<uint64_t>)offsets_ bytes:(std::initializer_list<std::string>)bytes_ {
@@ -525,12 +617,12 @@ void restoreLastSession() {
     offsetVector.insert(offsetVector.begin(), offsets_.begin(), offsets_.end());
     bytesVector.insert(bytesVector.begin(), bytes_.begin(), bytes_.end());
 
-    OffsetSwitch *offsetPatch = [[OffsetSwitch alloc]initHackNamed:hackName_ description:description_ offsets:offsetVector bytes:bytesVector];
+    OffsetSwitch *offsetPatch = [[OffsetSwitch alloc] initHackNamed:hackName_ description:description_ offsets:offsetVector bytes:bytesVector];
     [menu addSwitchToMenu:offsetPatch];
 }
 
 - (void)addTextfieldSwitch:(NSString *)hackName_ description:(NSString *)description_ inputBorderColor:(UIColor *)inputBorderColor_ {
-    TextFieldSwitch *textfieldSwitch = [[TextFieldSwitch alloc]initTextfieldNamed:hackName_ description:description_ inputBorderColor:inputBorderColor_];
+    TextFieldSwitch *textfieldSwitch = [[TextFieldSwitch alloc] initTextfieldNamed:hackName_ description:description_ inputBorderColor:inputBorderColor_];
     [menu addSwitchToMenu:textfieldSwitch];
 }
 
@@ -540,16 +632,13 @@ void restoreLastSession() {
 }
 
 - (NSString *)getValueFromSwitch:(NSString *)name {
-
-    //getting the correct key for the saved input.
-    NSString *correctKey =  [name stringByApplyingTransform:NSStringTransformLatinToCyrillic reverse:false];
+    NSString *correctKey = [name stringByApplyingTransform:NSStringTransformLatinToCyrillic reverse:false];
 
     if([[NSUserDefaults standardUserDefaults] objectForKey:correctKey]) {
         return [[NSUserDefaults standardUserDefaults] objectForKey:correctKey];
     }
     else if([[NSUserDefaults standardUserDefaults] floatForKey:correctKey]) {
-        NSString *sliderValue = [NSString stringWithFormat:@"%f", [[NSUserDefaults standardUserDefaults] floatForKey:correctKey]];
-        return sliderValue;
+        return [NSString stringWithFormat:@"%f", [[NSUserDefaults standardUserDefaults] floatForKey:correctKey]];
     }
 
     return 0;
