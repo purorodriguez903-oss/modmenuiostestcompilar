@@ -17,6 +17,7 @@
 @class TextFieldSwitch;
 @class SliderSwitch;
 @class Switches;
+@class FloatingSwitchView;
 
 @interface Menu : UIView
 
@@ -31,12 +32,27 @@
 
 @end
 
+@interface FloatingSwitchView : UIView
+
+@property (weak, nonatomic) OffsetSwitch *parentSwitch;
+@property (strong, nonatomic) UISwitch *miniSwitch;
+@property (strong, nonatomic) UILabel *nameLabel;
+@property (assign, nonatomic) CGPoint lastLocation;
+
+-(id)initWithOffsetSwitch:(OffsetSwitch *)parent;
+-(void)updateSwitchState:(BOOL)isOn;
+-(void)closeTapped;
+
+@end
+
 @interface OffsetSwitch : UIButton {
     NSString *preferencesKey;
     NSString *description;
     UILabel *switchLabel;
     UILabel *subLabel;
     UISwitch *toggleSwitch;
+    UIButton *pinBtn;
+    FloatingSwitchView *floatingView;
 }
 
 - (id)initHackNamed:(NSString *)hackName_ description:(NSString *)description_ offsets:(std::vector<uint64_t>)offsets_ bytes:(std::vector<std::string>)bytes_;
@@ -47,6 +63,9 @@
 - (std::vector<MemoryPatch>)getMemoryPatches;
 -(void)setSwitchOn:(BOOL)on;
 -(UISwitch *)getToggleSwitch;
+-(void)toggleSwitchChanged:(UISwitch *)sw;
+-(void)pinTapped;
+-(void)floatingClosed;
 
 @end
 

@@ -353,6 +353,87 @@ void restoreLastSession() {
 @end
 
 
+/****************************************
+    FLOATING SWITCH VIEW (HUD WIDGET)
+*****************************************/
+
+@implementation FloatingSwitchView
+
+-(id)initWithOffsetSwitch:(OffsetSwitch *)parent {
+    CGFloat startY = 110.0f + (arc4random_uniform(4) * 44.0f);
+    CGFloat startX = mainWindow.frame.size.width - 146.0f;
+    if (startX < 20.0f) startX = 180.0f;
+
+    self = [super initWithFrame:CGRectMake(startX, startY, 140.0f, 36.0f)];
+    if (self) {
+        self.parentSwitch = parent;
+        self.backgroundColor = [UIColor colorWithRed:14.0f/255.0f green:14.0f/255.0f blue:20.0f/255.0f alpha:0.92f];
+        self.layer.cornerRadius = 18.0f;
+        self.layer.borderWidth = 1.2f;
+        self.layer.borderColor = [UIColor colorWithRed:229.0f/255.0f green:29.0f/255.0f blue:46.0f/255.0f alpha:0.95f].CGColor;
+        self.clipsToBounds = YES;
+
+        // Close button 'x' (left)
+        UIButton *closeBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+        closeBtn.frame = CGRectMake(4.0f, 6.0f, 20.0f, 24.0f);
+        [closeBtn setTitle:@"✕" forState:UIControlStateNormal];
+        closeBtn.titleLabel.font = [UIFont systemFontOfSize:11.0f weight:UIFontWeightBold];
+        [closeBtn setTitleColor:[UIColor colorWithRed:200.0f/255.0f green:200.0f/255.0f blue:210.0f/255.0f alpha:0.85f] forState:UIControlStateNormal];
+        [closeBtn addTarget:self action:@selector(closeTapped) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:closeBtn];
+
+        // Switch Name Label (center)
+        self.nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(26.0f, 8.0f, 66.0f, 20.0f)];
+        self.nameLabel.text = [parent getPreferencesKey];
+        self.nameLabel.textColor = [UIColor whiteColor];
+        self.nameLabel.font = [UIFont boldSystemFontOfSize:10.5f];
+        self.nameLabel.adjustsFontSizeToFitWidth = YES;
+        [self addSubview:self.nameLabel];
+
+        // Mini UISwitch (right)
+        self.miniSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(92.0f, 3.0f, 38.0f, 24.0f)];
+        self.miniSwitch.transform = CGAffineTransformMakeScale(0.65f, 0.65f);
+        self.miniSwitch.onTintColor = [UIColor colorWithRed:229.0f/255.0f green:29.0f/255.0f blue:46.0f/255.0f alpha:1.0f];
+        [self.miniSwitch setOn:[[NSUserDefaults standardUserDefaults] boolForKey:[parent getPreferencesKey]] animated:NO];
+        [self.miniSwitch addTarget:self action:@selector(miniSwitchToggled:) forControlEvents:UIControlEventValueChanged];
+        [self addSubview:self.miniSwitch];
+
+        // Pan gesture to drag anywhere on screen
+        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
+        [self addGestureRecognizer:pan];
+    }
+    return self;
+}
+
+-(void)closeTapped {
+    [UIView animateWithDuration:0.2 animations:^{
+        self.alpha = 0.0f;
+    } completion:^(BOOL finished){
+        [self removeFromSuperview];
+        [self.parentSwitch floatingClosed];
+    }];
+}
+
+-(void)miniSwitchToggled:(UISwitch *)sender {
+    [self.parentSwitch setSwitchOn:sender.isOn];
+    [self.parentSwitch toggleSwitchChanged:sender];
+}
+
+-(void)updateSwitchState:(BOOL)isOn {
+    [self.miniSwitch setOn:isOn animated:YES];
+}
+
+-(void)handlePan:(UIPanGestureRecognizer *)pan {
+    if (pan.state == UIGestureRecognizerStateBegan) {
+        self.lastLocation = self.center;
+    }
+    CGPoint translation = [pan translationInView:self.superview];
+    self.center = CGPointMake(self.lastLocation.x + translation.x, self.lastLocation.y + translation.y);
+}
+
+@end
+
+
 /********************************
     OFFSET SWITCH STARTS HERE!
 *********************************/
@@ -404,23 +485,32 @@ void restoreLastSession() {
     [iconBg addSubview:iconLbl];
 
     // Title
-    switchLabel = [[UILabel alloc] initWithFrame:CGRectMake(50, 9, 160, 18)];
+    switchLabel = [[UILabel alloc] initWithFrame:CGRectMake(50, 9, 140, 18)];
     switchLabel.text = hackName_;
     switchLabel.textColor = [UIColor whiteColor];
     switchLabel.font = [UIFont boldSystemFontOfSize:13.5f];
     [self addSubview:switchLabel];
 
     // Subtitle
-    subLabel = [[UILabel alloc] initWithFrame:CGRectMake(50, 28, 160, 14)];
+    subLabel = [[UILabel alloc] initWithFrame:CGRectMake(50, 28, 140, 14)];
     subLabel.text = description_;
     subLabel.textColor = [UIColor colorWithRed:142.0f/255.0f green:142.0f/255.0f blue:158.0f/255.0f alpha:1.0f];
     subLabel.font = [UIFont systemFontOfSize:10.0f];
     [self addSubview:subLabel];
 
+    // Pin Button for Floating HUD toggle (X: menuWidth - 24 - 88)
+    pinBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    pinBtn.frame = CGRectMake(menuWidth - 24 - 88, 14, 28, 26);
+    [pinBtn setTitle:@"📌" forState:UIControlStateNormal];
+    pinBtn.titleLabel.font = [UIFont systemFontOfSize:13.0f];
+    pinBtn.alpha = 0.5f;
+    [pinBtn addTarget:self action:@selector(pinTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:pinBtn];
+
     // Right-aligned UISwitch
-    toggleSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(menuWidth - 24 - 58, 12, 48, 28)];
+    toggleSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(menuWidth - 24 - 54, 12, 48, 28)];
     toggleSwitch.onTintColor = [UIColor colorWithRed:229.0f/255.0f green:29.0f/255.0f blue:46.0f/255.0f alpha:1.0f];
-    toggleSwitch.transform = CGAffineTransformMakeScale(0.85f, 0.85f);
+    toggleSwitch.transform = CGAffineTransformMakeScale(0.82f, 0.82f);
     BOOL isOn = [defaults boolForKey:preferencesKey];
     [toggleSwitch setOn:isOn animated:NO];
     [toggleSwitch addTarget:self action:@selector(toggleSwitchChanged:) forControlEvents:UIControlEventValueChanged];
@@ -429,6 +519,21 @@ void restoreLastSession() {
     [self addTarget:self action:@selector(cardTapped) forControlEvents:UIControlEventTouchUpInside];
 
     return self;
+}
+
+-(void)pinTapped {
+    if (floatingView && floatingView.superview) {
+        [floatingView closeTapped];
+    } else {
+        floatingView = [[FloatingSwitchView alloc] initWithOffsetSwitch:self];
+        [mainWindow addSubview:floatingView];
+        pinBtn.alpha = 1.0f;
+    }
+}
+
+-(void)floatingClosed {
+    pinBtn.alpha = 0.5f;
+    floatingView = nil;
 }
 
 -(void)cardTapped {
@@ -446,10 +551,16 @@ void restoreLastSession() {
         }
     }
     [defaults setBool:on forKey:preferencesKey];
+    if (floatingView) {
+        [floatingView updateSwitchState:on];
+    }
 }
 
 -(void)setSwitchOn:(BOOL)on {
     [toggleSwitch setOn:on animated:YES];
+    if (floatingView) {
+        [floatingView updateSwitchState:on];
+    }
 }
 
 -(UISwitch *)getToggleSwitch {
@@ -481,7 +592,9 @@ void restoreLastSession() {
 - (id)initTextfieldNamed:(NSString *)hackName_ description:(NSString *)description_ inputBorderColor:(UIColor *)inputBorderColor_ {
     self = [super initHackNamed:hackName_ description:description_ offsets:std::vector<uint64_t>{} bytes:std::vector<std::string>{}];
     
+    // Hide toggleSwitch and pinBtn since this is a textfield stepper
     [toggleSwitch setHidden:YES];
+    [pinBtn setHidden:YES];
     
     switchValueKey = [hackName_ stringByApplyingTransform:NSStringTransformLatinToCyrillic reverse:false];
 
