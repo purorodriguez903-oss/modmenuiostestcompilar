@@ -19,7 +19,37 @@
 
 @end
 
+
+static UIWindow *getKeyWindow(void) {
+    UIWindow *found = nil;
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                UIWindowScene *ws = (UIWindowScene *)scene;
+                for (UIWindow *w in ws.windows) {
+                    if (w.isKeyWindow) { found = w; break; }
+                }
+            }
+            if (found) break;
+        }
+    }
+    if (!found) {
+        NSArray *windows = [UIApplication sharedApplication].windows;
+        for (UIWindow *w in windows) {
+            if (w.isKeyWindow) { found = w; break; }
+        }
+        if (!found && windows.count > 0) {
+            found = windows.firstObject;
+        }
+    }
+    if (!found) {
+        found = [UIApplication sharedApplication].keyWindow;
+    }
+    return found;
+}
+
 @implementation Menu
+
 
 NSUserDefaults *defaults;
 UIScrollView *scrollView;
@@ -44,7 +74,7 @@ Menu *menu = [Menu alloc];
 Switches *switches = [Switches alloc];
 
 -(id)initWithTitle:(NSString *)title_ titleColor:(UIColor *)titleColor_ titleFont:(NSString *)titleFont_ credits:(NSString *)credits_ headerColor:(UIColor *)headerColor_ switchOffColor:(UIColor *)switchOffColor_ switchOnColor:(UIColor *)switchOnColor_ switchTitleFont:(NSString *)switchTitleFont_ switchTitleColor:(UIColor *)switchTitleColor_ infoButtonColor:(UIColor *)infoButtonColor_ maxVisibleSwitches:(int)maxVisibleSwitches_ menuWidth:(CGFloat )menuWidth_ menuIcon:(NSString *)menuIconBase64_ menuButton:(NSString *)menuButtonBase64_ {
-    mainWindow = [UIApplication sharedApplication].keyWindow;
+    mainWindow = getKeyWindow();
     defaults = [NSUserDefaults standardUserDefaults];
 
     menuWidth = 320.0f;
@@ -58,7 +88,9 @@ Switches *switches = [Switches alloc];
 
     // Main Card Container Setup
     self = [super initWithFrame:CGRectMake(0, 0, menuWidth, menuHeight)];
-    self.center = mainWindow.center;
+    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGPoint targetCenter = mainWindow ? mainWindow.center : CGPointMake(CGRectGetMidX(screenBounds), CGRectGetMidY(screenBounds));
+    self.center = targetCenter;
     self.layer.opacity = 0.0f;
     self.backgroundColor = [UIColor colorWithRed:14.0f/255.0f green:14.0f/255.0f blue:18.0f/255.0f alpha:0.96f];
     self.layer.cornerRadius = 22.0f;
@@ -265,11 +297,14 @@ void restoreLastSession() {
 }
 
 -(void)showMenuButton {
+    if (!mainWindow) mainWindow = getKeyWindow();
+    CGRect sBounds = mainWindow ? mainWindow.bounds : [UIScreen mainScreen].bounds;
+
     NSData* data = [[NSData alloc] initWithBase64EncodedString:menuButtonBase64 options:0];
     UIImage* menuButtonImage = [UIImage imageWithData:data];
 
     menuButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-    menuButton.frame = CGRectMake((mainWindow.frame.size.width/2), (mainWindow.frame.size.height/2), 50, 50);
+    menuButton.frame = CGRectMake(CGRectGetMidX(sBounds) - 25.0f, CGRectGetMidY(sBounds) - 25.0f, 50, 50);
     menuButton.backgroundColor = [UIColor clearColor];
     [menuButton setBackgroundImage:menuButtonImage forState:UIControlStateNormal];
 
@@ -278,7 +313,9 @@ void restoreLastSession() {
 
     [menuButton addTarget:self action:@selector(buttonDragged:withEvent:) forControlEvents:UIControlEventTouchDragInside];
 
-    [mainWindow addSubview:menuButton];
+    if (mainWindow) {
+        [mainWindow addSubview:menuButton];
+    }
 }
 
 - (void)buttonDragged:(UIButton *)button withEvent:(UIEvent *)event {

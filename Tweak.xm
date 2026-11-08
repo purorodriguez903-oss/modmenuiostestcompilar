@@ -98,40 +98,57 @@ void setupMenu() {
     setup();
 }
 
-// If the menu button doesn't show up; Change the timer to a bigger amount.
-static void didFinishLaunching(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef info) {
-  timer(5) {
-    SCLAlertView *alert = [[SCLAlertView alloc] initWithNewWindow];
-
-    SCLTextView *keyField = [alert addTextField:NSSENCRYPT("Key")];
-    keyField.text = @"1";
-    keyField.textAlignment = NSTextAlignmentCenter;
-
-    [alert addButton: NSSENCRYPT("Entrar") validationBlock:^BOOL {
-      if ([keyField.text isEqualToString:@"1"]) {
-        return YES;
-      }
-      keyField.layer.borderColor = [UIColor redColor].CGColor;
-      keyField.layer.borderWidth = 1.0f;
-      return NO;
-    } actionBlock: ^(void) {
-      timer(1) {
-        setupMenu();
-      });
-    }];    
-
-    alert.shouldDismissOnTapOutside = NO;
-    alert.customViewColor = [UIColor purpleColor];  
-    alert.showAnimationType = SCLAlertViewShowAnimationSlideInFromCenter;   
-    
-    [alert showSuccess: NSSENCRYPT("RAFA PRO")
-            subTitle:NSSENCRYPT("RafaModzYT Is back\n\nIngresa tu Key de acceso:") 
-              closeButtonTitle:nil
-                duration:99999999.0f];
+static void setupMenuSafe() {
+  static dispatch_once_t onceMenu;
+  dispatch_once(&onceMenu, ^{
+    setupMenu();
   });
 }
 
+static void didFinishLaunchingNotification(NSNotification *notification) {
+  static dispatch_once_t onceAlert;
+  dispatch_once(&onceAlert, ^{
+    timer(4) {
+      SCLAlertView *alert = [[SCLAlertView alloc] initWithNewWindow];
+
+      SCLTextView *keyField = [alert addTextField:NSSENCRYPT("Key")];
+      keyField.text = @"1";
+      keyField.textAlignment = NSTextAlignmentCenter;
+
+      [alert addButton: NSSENCRYPT("Entrar") validationBlock:^BOOL {
+        if ([keyField.text isEqualToString:@"1"]) {
+          return YES;
+        }
+        keyField.layer.borderColor = [UIColor redColor].CGColor;
+        keyField.layer.borderWidth = 1.0f;
+        return NO;
+      } actionBlock: ^(void) {
+        timer(1) {
+          setupMenuSafe();
+        });
+      }];    
+
+      alert.shouldDismissOnTapOutside = NO;
+      alert.customViewColor = [UIColor colorWithRed:229.0f/255.0f green:29.0f/255.0f blue:46.0f/255.0f alpha:1.0f];  
+      alert.showAnimationType = SCLAlertViewShowAnimationSlideInFromCenter;   
+      
+      [alert showSuccess: NSSENCRYPT("RAFA PRO")
+              subTitle:NSSENCRYPT("RafaModzYT Is back\n\nIngresa tu Key de acceso:") 
+                closeButtonTitle:nil
+                  duration:99999999.0f];
+    });
+  });
+}
 
 %ctor {
-  CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), NULL, &didFinishLaunching, (CFStringRef)UIApplicationDidFinishLaunchingNotification, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+  [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                    object:nil
+                                                     queue:[NSOperationQueue mainQueue]
+                                                usingBlock:^(NSNotification *note) {
+    didFinishLaunchingNotification(note);
+  }];
+
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 6 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    didFinishLaunchingNotification(nil);
+  });
 }

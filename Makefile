@@ -36,10 +36,10 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = FreeFireModMenu
 
 FreeFireModMenu_CFLAGS = -fobjc-arc -w
-FreeFireModMenu_CCFLAGS = -std=c++11 -fno-rtti -fno-exceptions -DNDEBUG -w
+FreeFireModMenu_CCFLAGS = -std=c++11 -fno-rtti -fno-exceptions -DNDEBUG -w -D_NO_SUBSTRATE_LINK
 
 FreeFireModMenu_FILES = Tweak.xm $(MENU_SRC) $(KITTYMEMORY_SRC) $(SCLALERTVIEW_SRC)
-FreeFireModMenu_LIBRARIES += substrate
+# FreeFireModMenu_LIBRARIES += substrate
 FreeFireModMenu_FRAMEWORKS = $(PROJ_COMMON_FRAMEWORKS)
 
 include $(THEOS_MAKE_PATH)/tweak.mk
